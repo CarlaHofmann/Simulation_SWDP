@@ -247,7 +247,7 @@ def add_module(module_matrix, basic_effort, change_type):
 
 
 class IterativeProject(object):
-    """Iterative Project""" # add more information
+    """Iterative Project"""  # add more information
     def __init__(self, env, sprint_effort_ip, g_change_list_ip, i_change_list_ip):
         self.env = env
         self.sprint_effort = sprint_effort_ip
@@ -357,9 +357,8 @@ class SequentialProject(object):
 
     def process_phases(self, effort_list):
         """Processing the individual project phases one after the other"""
-        e_list = effort_list
         for i in range(5):
-            self.final_effort += e_list[i]
+            self.final_effort += effort_list[i]
 
     def process_i_changes(self):
         """Processing of incoming changes"""
@@ -378,10 +377,11 @@ class SequentialProject(object):
             else:
                 ch_effort += (ch_effort * 0.7)
 
+            self.i_ch_list.pop(0)
             incoming_effort += ch_effort
 
         e_list = [incoming_effort * 0.2, incoming_effort * 0.2, incoming_effort * 0.3,
-                  incoming_effort * 0.2, incoming_effort * 0.1]
+                  incoming_effort * 0.2 + self.ph_list[3], incoming_effort * 0.1]
         self.process_phases(e_list)
 
     def get_sp_final_effort(self):
@@ -393,7 +393,7 @@ class SequentialProject(object):
 execution_id = 0
 execution_doc = open('execution_doc.csv', 'w', newline='')
 doc_rows = [['Execution Nr.', 'Modules', 'Coupling Degree', 'General Changes', 'General Effort',
-            'Incoming Changes', 'End Effort P1', 'Sprint Effort', 'End Effort P2']]
+            'Incoming Changes', 'End Effort IP', 'End Effort SP']]
 
 # Setup and start the simulation
 environment = simpy.Environment()
@@ -425,13 +425,14 @@ for i in range(1):
     # Documentation of the execution results
     execution_id += 1
     doc_rows.extend([[execution_id, NUMBER_OF_MODULES, COUPLING_DEGREE, NUMBER_OF_GENERAL_CHANGES,
-                    GENERAL_EFFORT.__round__(), NUMBER_OF_INCOMING_CHANGES, total_effort_sp.__round__(),
-                    total_effort_ip.__round__()]])
+                    GENERAL_EFFORT.__round__(), NUMBER_OF_INCOMING_CHANGES, total_effort_ip.__round__(),
+                    total_effort_sp.__round__()]])
     print([[execution_id, NUMBER_OF_MODULES, COUPLING_DEGREE, NUMBER_OF_GENERAL_CHANGES,
-            GENERAL_EFFORT.__round__(), NUMBER_OF_INCOMING_CHANGES, total_effort_sp.__round__(),
-            total_effort_ip.__round__()]])
+            GENERAL_EFFORT.__round__(), NUMBER_OF_INCOMING_CHANGES, total_effort_ip.__round__(),
+            total_effort_sp.__round__()]])
 
 # Write execution results in the csv file
 with execution_doc:
     csv_writer = csv.writer(execution_doc, delimiter=',')
     csv_writer.writerows(doc_rows)
+print(time.time())
