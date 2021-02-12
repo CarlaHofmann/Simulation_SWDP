@@ -26,6 +26,7 @@ def create_architecture_matrix(num_modules):
                 else:
                     k += 1
 
+    print("Created Module Matrix: ", time.perf_counter())
     return module_matrix
 
 
@@ -34,7 +35,7 @@ def get_coupling_degree(num_modules, module_matrix):
     ec_list = numpy.sum(module_matrix, axis=0)
     cd_list = []
 
-    # Calculate the instability and coupling degree for every module
+    # Calculate the instability for every module
     for i in range(num_modules):
         e_coupling = 0
         a_coupling = 0
@@ -49,11 +50,14 @@ def get_coupling_degree(num_modules, module_matrix):
         else:
             mod_instability = e_coupling / (e_coupling + a_coupling)
 
+        # Calculate the coupling degree for every module
         mod_coupling_degree = mod_instability * ec_list[i]
         cd_list.append(mod_coupling_degree)
 
     # Calculate the degree of coupling of the software architecture
     coupling_degree = (numpy.sum(cd_list) / num_modules).__round__(3)
+
+    print("Coupling Degree calculated: ", time.perf_counter())
     return coupling_degree
 
 
@@ -66,8 +70,8 @@ def change_planning(num_g_changes, num_i_changes, module_matrix):
     ch_id = 0
 
     # Create general changes
-    for i in range(1, num_g_changes + 1):
-        ch_id = i
+    for i in range(num_g_changes):
+        ch_id = i+1
         type_tuple = change_type_definition(module_matrix)
         ch_type = type_tuple[0]
         ch_dep = type_tuple[1]
@@ -76,7 +80,7 @@ def change_planning(num_g_changes, num_i_changes, module_matrix):
         ch_priority = 2
         ch_time = 0
 
-        gen_effort = gen_effort + ch_effort
+        gen_effort += ch_effort
         g_ch_list.append([ch_id, ch_type, ch_dep, ch_effort, ch_priority, ch_time])
 
     # Create incoming changes
@@ -101,6 +105,7 @@ def change_planning(num_g_changes, num_i_changes, module_matrix):
     # Sort incoming changes by time
     i_ch_list.sort(key=lambda x: x[5])
 
+    print("Change Planning done: ", time.perf_counter())
     return gen_effort, g_ch_list, i_ch_list
 
 
@@ -132,10 +137,10 @@ def change_type_definition(module_matrix):
 
 def remove_module(module_matrix, basic_effort, change_type):
     """Remove a module and the associated dependencies from the software architecture"""
-    ch_effort = basic_effort * (change_type + 1)
+    ch_effort = basic_effort * (change_type+1)
     e_coupling = 0
     a_coupling = 0
-    module = random.randint(0, len(module_matrix) - 1)
+    module = random.randint(0, len(module_matrix)-1)
 
     # Calculate the instability of the module to be deleted
     for i in range(len(module_matrix)):
@@ -158,8 +163,8 @@ def remove_module(module_matrix, basic_effort, change_type):
     # Remove module from module matrix
     x = list(module_matrix.tolist())
     for j in range(len(x)):
-        x[j].pop(module - 1)
-    x.pop(module - 1)
+        x[j].pop(module-1)
+    x.pop(module-1)
     module_matrix = numpy.array([numpy.array(xi) for xi in x])
 
     return ch_dep, ch_effort, module_matrix
@@ -167,10 +172,10 @@ def remove_module(module_matrix, basic_effort, change_type):
 
 def change_module(module_matrix, basic_effort, change_type):
     """Change a module from the software architecture"""
-    ch_effort = basic_effort * (change_type + 1)
+    ch_effort = basic_effort * (change_type+1)
     e_coupling = 0
     a_coupling = 0
-    module = random.randint(0, len(module_matrix) - 1)
+    module = random.randint(0, len(module_matrix)-1)
 
     # Calculate the instability of the module to be changed
     for i in range(len(module_matrix)):
@@ -195,14 +200,16 @@ def change_module(module_matrix, basic_effort, change_type):
 
 def add_module(module_matrix, basic_effort, change_type):
     """Add a module and associated dependencies to the software architecture"""
-    ch_effort = basic_effort * (change_type + 1)
+    ch_effort = basic_effort * (change_type+1)
     e_coupling = 0
     a_coupling = 0
     module = len(module_matrix)+1
     x = module_matrix.tolist()
     y = []
-    a = int(module * (random.uniform(0.1, 1)))
     k = 0
+
+    # Calculate the frequency of matrix-fields to be filled in
+    a = int(module * (random.uniform(0.1, 1)))
 
     # Add a module and associated dependencies to the module matrix
     for i in range(module):
@@ -251,9 +258,10 @@ class IterativeProject(object):
     def __init__(self, env, sprint_effort_ip, g_change_list_ip, i_change_list_ip):
         self.env = env
         self.sprint_effort = sprint_effort_ip
-        self.sprint_time = sprint_effort_ip
+        self.time_counter = 0
         self.final_effort = 0
-        self.ch_list = i_change_list_ip
+        self.i_ch_list_ip = i_change_list_ip
+        self.i_ch_list = []
         self.product_backlog = g_change_list_ip
         self.sprint_backlog = list()
         self.sprint_backlog_effort = 0
@@ -263,6 +271,12 @@ class IterativeProject(object):
 
     def run(self):
         """Run the simulation of an iterative project"""
+        print("IP Start: ", self.time_counter)
+
+        # Save incoming changes in a new list
+        for i in range(len(self.i_ch_list_ip)):
+            self.i_ch_list.append(self.i_ch_list_ip[i])
+
         # Run the "Fill Product Backlog" and "Fill Sprint Backlog" Processes concurrently
         t1 = threading.Thread(target=self.fill_product_backlog)
         t2 = threading.Thread(target=self.fill_sprint_backlog)
@@ -271,12 +285,14 @@ class IterativeProject(object):
         t1.join()
         t2.join()
 
+        print("IP End: ", self.time_counter)
+
     def fill_product_backlog(self):
         """Fill the Product Backlog with incoming changes when they occur"""
-        while self.ch_list:
-            time.sleep(self.ch_list[0][5] - time.perf_counter())
-            self.product_backlog.append(self.ch_list[0])
-            self.ch_list.pop(0)
+        while self.i_ch_list:
+            if self.i_ch_list[0][5] <= self.time_counter :
+                self.product_backlog.append(self.i_ch_list[0])
+                self.i_ch_list.pop(0)
 
     def fill_sprint_backlog(self):
         """Fill the Sprint Backlog with changes from the Product Backlog. The order in which the
@@ -308,25 +324,22 @@ class IterativeProject(object):
     def run_sprint(self):
         """Implementation of a sprint. Processing the changes in the Sprint Backlog."""
         # Calculate new final effort
-        self.final_effort = self.final_effort + self.sprint_effort
+        self.final_effort += self.sprint_effort
 
         # If not all changes can be processed, an adjustment is made to the incomplete
         # change and it is moved back into the product backlog with priority 0.
         if self.sprint_backlog_effort > self.sprint_effort: # Macht man halbe Sache im Sprint?
             change = self.sprint_backlog[len(self.sprint_backlog) - 1]
-            sprint_dif = self.sprint_backlog_effort - self.sprint_effort
-            change[3] = change[3] - sprint_dif
+            change[3] = self.sprint_backlog_effort - self.sprint_effort
             change[4] = 0  # set priority 0
             self.product_backlog.append(change)
 
-        # Wait till Sprint time is passed and clear Sprint effort and Sprint Backlog
-        if time.perf_counter() < self.sprint_time:
-            time.sleep(self.sprint_time - time.perf_counter())
+        # Clear Sprint effort and Sprint Backlog
         self.sprint_backlog_effort = 0
         self.sprint_backlog = list()
 
         # Calculate new Sprint time
-        self.sprint_time = self.sprint_time + self.sprint_effort
+        self.time_counter += self.sprint_effort
 
     def get_ip_final_effort(self):
         """Return the final effort of the iterative project"""
@@ -338,7 +351,8 @@ class SequentialProject(object):
     def __init__(self, env, gen_effort, i_change_list_sp):
         self.env = env
         self.gen_effort = gen_effort
-        self.i_ch_list = i_change_list_sp
+        self.i_ch_list = []
+        self.i_ch_list_sp = i_change_list_sp
         self.ph_list = []
         self.final_effort = 0
 
@@ -347,42 +361,47 @@ class SequentialProject(object):
 
     def run(self):
         """Run the simulation of a sequential project"""
+        print("SP Start")
         # Calculate the effort of the individual phases
         self.ph_list = [self.gen_effort * 0.2, self.gen_effort * 0.2, self.gen_effort * 0.3,
                         self.gen_effort * 0.2, self.gen_effort * 0.1]
 
+        # Save incoming changes in a new list
+        for i in range(len(self.i_ch_list_sp)):
+            self.i_ch_list.append(self.i_ch_list_sp[i])
+
         # Run the "Process Phases" and "Process Incoming Changes" Processes
         self.process_phases(self.ph_list)
-        self.process_i_changes()
+        while self.i_ch_list:
+            effort_list = self.process_i_changes(self.i_ch_list)
+            self.process_phases(effort_list)
+
+        print("SP End")
 
     def process_phases(self, effort_list):
         """Processing the individual project phases one after the other"""
-        for i in range(5):
+        for i in range(len(effort_list)):
             self.final_effort += effort_list[i]
 
-    def process_i_changes(self):
+    def process_i_changes(self, ch_list):
         """Processing of incoming changes"""
         incoming_effort = 0
-        while self.i_ch_list:
-            ch_effort = self.i_ch_list[0][3]
-            ch_time = self.i_ch_list[0][5]
+        self.i_ch_list = []
 
-            # Check during which phase the incoming change occurs and adapt the effort
-            if ch_time <= self.ph_list[0]:
-                ch_effort += (ch_effort * 0.1)
-            elif self.ph_list[0] < ch_time <= self.ph_list[1]:
-                ch_effort += (ch_effort * 0.2)
-            elif self.ph_list[1] < ch_time <= self.ph_list[2]:
-                ch_effort += (ch_effort * 0.4)
-            else:
-                ch_effort += (ch_effort * 0.7)
+        for i in range(len(ch_list)-1):
+            if ch_list[i][5] > self.final_effort:
+                self.i_ch_list.append(ch_list[i])
+                ch_list.pop(i)
 
-            self.i_ch_list.pop(0)
+        while ch_list:
+            ch_effort = ch_list[0][3]
+            ch_list.pop(0)
             incoming_effort += ch_effort
 
         e_list = [incoming_effort * 0.2, incoming_effort * 0.2, incoming_effort * 0.3,
                   incoming_effort * 0.2 + self.ph_list[3], incoming_effort * 0.1]
-        self.process_phases(e_list)
+
+        return e_list
 
     def get_sp_final_effort(self):
         """Return the final effort of the sequential project"""
@@ -400,7 +419,7 @@ environment = simpy.Environment()
 environment.run()
 
 # Execute the simulation several times
-for i in range(1):
+for i in range(500):
     NUMBER_OF_MODULES = random.randint(10, 50)
     NUMBER_OF_GENERAL_CHANGES = random.randint(5, 15)
     NUMBER_OF_INCOMING_CHANGES = random.randint(5, 15)
@@ -412,15 +431,15 @@ for i in range(1):
     GENERAL_EFFORT = CHANGE_PLAN_TUPLE[0]
     G_CHANGE_LIST = CHANGE_PLAN_TUPLE[1]
     I_CHANGE_LIST = CHANGE_PLAN_TUPLE[2]
-    SPRINT_EFFORT = 120
-
-    # Start and run the iterative project
-    ip = IterativeProject(environment, SPRINT_EFFORT, G_CHANGE_LIST, I_CHANGE_LIST)
-    total_effort_ip = ip.get_ip_final_effort()
+    SPRINT_EFFORT = 120  # 3 week sprints
 
     # Start and run the sequential project
     sp = SequentialProject(environment, GENERAL_EFFORT, I_CHANGE_LIST)
     total_effort_sp = sp.get_sp_final_effort()
+
+    # Start and run the iterative project
+    ip = IterativeProject(environment, SPRINT_EFFORT, G_CHANGE_LIST, I_CHANGE_LIST)
+    total_effort_ip = ip.get_ip_final_effort()
 
     # Documentation of the execution results
     execution_id += 1
@@ -428,11 +447,10 @@ for i in range(1):
                     GENERAL_EFFORT.__round__(), NUMBER_OF_INCOMING_CHANGES, total_effort_ip.__round__(),
                     total_effort_sp.__round__()]])
     print([[execution_id, NUMBER_OF_MODULES, COUPLING_DEGREE, NUMBER_OF_GENERAL_CHANGES,
-            GENERAL_EFFORT.__round__(), NUMBER_OF_INCOMING_CHANGES, total_effort_ip.__round__(),
-            total_effort_sp.__round__()]])
+            GENERAL_EFFORT.__round__(), NUMBER_OF_INCOMING_CHANGES, "SP: ", total_effort_sp.__round__(),
+            "IP: ", total_effort_ip.__round__()]])
 
 # Write execution results in the csv file
 with execution_doc:
     csv_writer = csv.writer(execution_doc, delimiter=',')
     csv_writer.writerows(doc_rows)
-print(time.time())
