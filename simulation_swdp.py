@@ -2,7 +2,6 @@ import simpy
 import random
 import numpy
 import threading
-import time
 import csv
 
 
@@ -26,7 +25,6 @@ def create_architecture_matrix(num_modules):
                 else:
                     k += 1
 
-    print("Created Module Matrix: ", time.perf_counter())
     return module_matrix
 
 
@@ -57,7 +55,6 @@ def get_coupling_degree(num_modules, module_matrix):
     # Calculate the degree of coupling of the software architecture
     coupling_degree = (numpy.sum(cd_list) / num_modules).__round__(3)
 
-    print("Coupling Degree calculated: ", time.perf_counter())
     return coupling_degree
 
 
@@ -89,6 +86,8 @@ def change_planning(num_g_changes, num_i_changes, module_matrix):
     for j in range(len(i_time)):
         if i_time[j] < 0:
             i_time[j] = float(str(i_time[j]).replace('-', ''))
+        if i_time[j] > gen_effort:
+            i_time[j] = random.uniform(0, gen_effort)
 
     for k in range(num_i_changes):
         ch_id = ch_id + 1
@@ -105,7 +104,6 @@ def change_planning(num_g_changes, num_i_changes, module_matrix):
     # Sort incoming changes by time
     i_ch_list.sort(key=lambda x: x[5])
 
-    print("Change Planning done: ", time.perf_counter())
     return gen_effort, g_ch_list, i_ch_list
 
 
@@ -140,34 +138,36 @@ def remove_module(module_matrix, basic_effort, change_type):
     ch_effort = basic_effort * (change_type+1)
     e_coupling = 0
     a_coupling = 0
-    module = random.randint(0, len(module_matrix)-1)
 
-    # Calculate the instability of the module to be deleted
-    for i in range(len(module_matrix)):
-        if module_matrix[module][i] != 0:
-            a_coupling += 1
-        if module_matrix[i][module] != 0:
-            e_coupling += 1
+    if len(module_matrix) != 0:
+        module = random.randint(0, len(module_matrix)-1)
 
-    if e_coupling == 0 and a_coupling == 0:
-        ch_dep = 0
-    else:
-        ch_dep = e_coupling / (e_coupling + a_coupling)
+        # Calculate the instability of the module to be deleted
+        for i in range(len(module_matrix)):
+            if module_matrix[module][i] != 0:
+                a_coupling += 1
+            if module_matrix[i][module] != 0:
+                e_coupling += 1
 
-    # Calculate coupling degree of the module to be deleted
-    ec_list = numpy.sum(module_matrix, axis=0)
-    ch_dep = ch_dep * ec_list[module]
-    if ch_dep != 0:
-        ch_effort *= (ch_dep * 10)
+        if e_coupling == 0 and a_coupling == 0:
+            ch_dep = 0
+        else:
+            ch_dep = e_coupling / (e_coupling + a_coupling)
 
-    # Remove module from module matrix
-    x = list(module_matrix.tolist())
-    for j in range(len(x)):
-        x[j].pop(module-1)
-    x.pop(module-1)
-    module_matrix = numpy.array([numpy.array(xi) for xi in x])
+        # Calculate coupling degree of the module to be deleted
+        ec_list = numpy.sum(module_matrix, axis=0)
+        ch_dep = ch_dep * ec_list[module]
+        if ch_dep != 0:
+            ch_effort *= (ch_dep * 10)
 
-    return ch_dep, ch_effort, module_matrix
+        # Remove module from module matrix
+        x = list(module_matrix.tolist())
+        for j in range(len(x)):
+            x[j].pop(module-1)
+        x.pop(module-1)
+        module_matrix = numpy.array([numpy.array(xi) for xi in x])
+
+        return ch_dep, ch_effort, module_matrix
 
 
 def change_module(module_matrix, basic_effort, change_type):
@@ -271,8 +271,6 @@ class IterativeProject(object):
 
     def run(self):
         """Run the simulation of an iterative project"""
-        print("IP Start: ", self.time_counter)
-
         # Save incoming changes in a new list
         for i in range(len(self.i_ch_list_ip)):
             self.i_ch_list.append(self.i_ch_list_ip[i])
@@ -285,12 +283,10 @@ class IterativeProject(object):
         t1.join()
         t2.join()
 
-        print("IP End: ", self.time_counter)
-
     def fill_product_backlog(self):
         """Fill the Product Backlog with incoming changes when they occur"""
         while self.i_ch_list:
-            if self.i_ch_list[0][5] <= self.time_counter :
+            if self.i_ch_list[0][5] <= self.time_counter:
                 self.product_backlog.append(self.i_ch_list[0])
                 self.i_ch_list.pop(0)
 
@@ -318,6 +314,7 @@ class IterativeProject(object):
                     self.sprint_backlog_effort += self.product_backlog[0][3]
                     self.sprint_backlog.append(self.product_backlog[0])
                     self.product_backlog.pop(0)
+                    break
 
             self.run_sprint()
 
@@ -328,7 +325,7 @@ class IterativeProject(object):
 
         # If not all changes can be processed, an adjustment is made to the incomplete
         # change and it is moved back into the product backlog with priority 0.
-        if self.sprint_backlog_effort > self.sprint_effort: # Macht man halbe Sache im Sprint?
+        if self.sprint_backlog_effort > self.sprint_effort:
             change = self.sprint_backlog[len(self.sprint_backlog) - 1]
             change[3] = self.sprint_backlog_effort - self.sprint_effort
             change[4] = 0  # set priority 0
@@ -361,7 +358,6 @@ class SequentialProject(object):
 
     def run(self):
         """Run the simulation of a sequential project"""
-        print("SP Start")
         # Calculate the effort of the individual phases
         self.ph_list = [self.gen_effort * 0.2, self.gen_effort * 0.2, self.gen_effort * 0.3,
                         self.gen_effort * 0.2, self.gen_effort * 0.1]
@@ -376,8 +372,6 @@ class SequentialProject(object):
             effort_list = self.process_i_changes(self.i_ch_list)
             self.process_phases(effort_list)
 
-        print("SP End")
-
     def process_phases(self, effort_list):
         """Processing the individual project phases one after the other"""
         for i in range(len(effort_list)):
@@ -386,12 +380,6 @@ class SequentialProject(object):
     def process_i_changes(self, ch_list):
         """Processing of incoming changes"""
         incoming_effort = 0
-        self.i_ch_list = []
-
-        for i in range(len(ch_list)-1):
-            if ch_list[i][5] > self.final_effort:
-                self.i_ch_list.append(ch_list[i])
-                ch_list.pop(i)
 
         while ch_list:
             ch_effort = ch_list[0][3]
@@ -419,7 +407,7 @@ environment = simpy.Environment()
 environment.run()
 
 # Execute the simulation several times
-for i in range(500):
+for i in range(100):
     NUMBER_OF_MODULES = random.randint(10, 50)
     NUMBER_OF_GENERAL_CHANGES = random.randint(5, 15)
     NUMBER_OF_INCOMING_CHANGES = random.randint(5, 15)
@@ -446,9 +434,6 @@ for i in range(500):
     doc_rows.extend([[execution_id, NUMBER_OF_MODULES, COUPLING_DEGREE, NUMBER_OF_GENERAL_CHANGES,
                     GENERAL_EFFORT.__round__(), NUMBER_OF_INCOMING_CHANGES, total_effort_ip.__round__(),
                     total_effort_sp.__round__()]])
-    print([[execution_id, NUMBER_OF_MODULES, COUPLING_DEGREE, NUMBER_OF_GENERAL_CHANGES,
-            GENERAL_EFFORT.__round__(), NUMBER_OF_INCOMING_CHANGES, "SP: ", total_effort_sp.__round__(),
-            "IP: ", total_effort_ip.__round__()]])
 
 # Write execution results in the csv file
 with execution_doc:
