@@ -12,7 +12,7 @@ def create_architecture_matrix(num_modules):
     k = 0
 
     # Calculate the frequency of matrix-fields to be filled in
-    a = int(num_modules * (random.uniform(0.1, 1)))
+    a = int(num_modules * (random.uniform(0.0, 0.3)))
 
     # Fill the matrix-fields
     for i in range(num_modules):
@@ -29,30 +29,15 @@ def create_architecture_matrix(num_modules):
 
 def get_coupling_degree(num_modules, module_matrix):
     """Calculate the degree of coupling of the software architecture"""
-    ec_list = numpy.sum(module_matrix, axis=0)
-    cd_list = []
+    s_list = []
 
-    # Calculate the instability for every module
-    for i in range(num_modules):
-        e_coupling = 0
-        a_coupling = 0
-
-        for j in range(num_modules):
+    for i in range(len(module_matrix)):
+        for j in range(len(module_matrix)):
             if module_matrix[i][j] != 0:
-                a_coupling += 1
-            if module_matrix[j][i] != 0:
-                e_coupling += 1
-        if e_coupling == 0 and a_coupling == 0:
-            mod_instability = 0
-        else:
-            mod_instability = e_coupling / (e_coupling + a_coupling)
-
-        # Calculate the coupling degree for every module
-        mod_coupling_degree = mod_instability * ec_list[i]
-        cd_list.append(mod_coupling_degree)
+                s_list.append(module_matrix[i][j])
 
     # Calculate the degree of coupling of the software architecture
-    coupling_degree = (numpy.sum(cd_list) / num_modules).__round__(3)
+    coupling_degree = (numpy.sum(s_list) / (num_modules * (num_modules - 1))).__round__(3)
 
     return coupling_degree
 
@@ -205,7 +190,6 @@ def add_module(module_matrix, basic_effort, change_type):
 
 class SequentialProject(object):
     """Sequential Project"""  # add more information
-
     def __init__(self, env, gen_effort, i_change_list_sp):
         self.env = env
         self.time_counter = 0
@@ -217,9 +201,9 @@ class SequentialProject(object):
         self.test_start = 0
 
         # Start Run Process when initialising the object
-        self.process = env.process(self.run())
+        self.process = env.process(self.run_sp())
 
-    def run(self):
+    def run_sp(self):
         """Run the simulation of a sequential project"""
         # Calculate the effort of the individual phases and the test start
         self.ph_list = [self.gen_effort * 0.2, self.gen_effort * 0.2, self.gen_effort * 0.3,
@@ -232,7 +216,6 @@ class SequentialProject(object):
 
         # Run the "Process Phases" Process
         self.process_phases()
-        self.average_implementation_duration()
 
     def process_phases(self):
         """Processing the individual project phases one after the other"""
@@ -288,7 +271,7 @@ class SequentialProject(object):
                 self.i_ch_list.remove(change)
             break
 
-    def average_implementation_duration(self):
+    def average_implementation_duration_sp(self):
         """Calculate ..."""
         duration_list = []
         for i in range(len(self.i_ch_list_sp)):
@@ -321,9 +304,9 @@ class IterativeProject(object):
         self.ch_done = list()
 
         # Start Run Process when initialising the object
-        self.process = self.env.process(self.run())
+        self.process = self.env.process(self.run_ip())
 
-    def run(self):
+    def run_ip(self):
         """Run the simulation of an iterative project"""
         # Save incoming changes in a new list
         for i in range(len(self.i_ch_list_ip)):
@@ -394,7 +377,7 @@ class IterativeProject(object):
             self.product_backlog.append(self.i_ch_list[0])
             self.i_ch_list.pop(0)
 
-    def average_implementation_duration(self):
+    def average_implementation_duration_ip(self):
         """Calculate average implementation duration of incoming changes"""
         self.ch_done.sort(key=lambda x: x[0])
         self.i_ch_list_ip.sort(key=lambda x: x[0])
@@ -427,10 +410,11 @@ doc_rows = [['Execution Nr.', 'Modules', 'Coupling Degree', 'General Changes', '
              'Avg. Duration IP']]
 
 # Execute the simulation several times
-for i in range(100):
-    NUMBER_OF_MODULES = random.randint(10, 50)
-    NUMBER_OF_GENERAL_CHANGES = random.randint(5, 15)
-    NUMBER_OF_INCOMING_CHANGES = random.randint(5, 15)
+for i in range(100000):
+    NUMBER_OF_MODULES = random.randint(50, 100)
+    NUMBER_OF_GENERAL_CHANGES = random.randint(15, 30)
+    NUMBER_OF_INCOMING_CHANGES = random.randint(15, 30)
+    SPRINT_EFFORT = 120  # 3 week sprints
 
     # Configuration of the general project variables
     MODULE_MATRIX = create_architecture_matrix(NUMBER_OF_MODULES)
@@ -440,16 +424,15 @@ for i in range(100):
     G_CHANGE_LIST = CHANGE_PLAN_TUPLE[1]
     I_CHANGE_LIST = CHANGE_PLAN_TUPLE[2]
     I_EFFORT = CHANGE_PLAN_TUPLE[3]
-    SPRINT_EFFORT = 120  # 3 week sprints
 
     # Start and run the sequential project
     sp = SequentialProject(environment, GENERAL_EFFORT, I_CHANGE_LIST)
-    avg_duration_sp = sp.average_implementation_duration()
+    avg_duration_sp = sp.average_implementation_duration_sp()
     total_effort_sp = sp.get_sp_final_effort()
 
     # Start and run the iterative project
     ip = IterativeProject(environment, SPRINT_EFFORT, G_CHANGE_LIST, I_CHANGE_LIST)
-    avg_duration_ip = ip.average_implementation_duration()
+    avg_duration_ip = ip.average_implementation_duration_ip()
     total_effort_ip = ip.get_ip_final_effort()
 
     # Documentation of the execution results
