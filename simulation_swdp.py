@@ -216,7 +216,7 @@ class SequentialProject(object):
 
     The project is divided into five phases. Incoming changes are
     processed in an external sequential project and all changes
-    are merged for the testing phase.The test start has to be
+    are merged for the testing phase. The test start has to be
     postponed if not all changes have completed the previous phase"""
 
     def __init__(self, env, gen_effort, i_change_list_sp):
@@ -399,8 +399,8 @@ class IterativeProject(object):
 
     def run_sprint(self):
         """Implementation of a sprint. Processing the changes in the Sprint Backlog.
-        If not all changes can be processed, an adjustment is made to the incomplete
-        # change and it is stored again in the Sprint Backlog."""
+        If not, all changes can be processed, an adjustment is made to the incomplete
+        change and it is stored again in the Sprint Backlog."""
         change = []
 
         # Check if all changes can be implemented and adjust change if not
