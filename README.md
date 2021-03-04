@@ -1,10 +1,5 @@
 # Simulation_SWDP
-## Table of contents
-* [General Infomations](#general-informations)
-* [Technologies](#technologies)
-* [Installation and Usage](#installation-and-usage)
 
-## General Informations
 Simulation_SWDP is a simulation of a sequential and an iterative software development project.
 
 ## Technologies
