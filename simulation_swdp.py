@@ -5,8 +5,8 @@ import csv
 
 
 def create_architecture_matrix(num_modules):
-    """Create a random number of software architecture modules
-       with random dependencies and save these in a matrix"""
+    """Create a matrix to store the dependencies between the
+    software architecture modules and fill it with random values"""
     # Create a zero-matrix
     module_matrix = numpy.zeros((num_modules, num_modules))
     k = 0
@@ -31,6 +31,7 @@ def get_coupling_degree(num_modules, module_matrix):
     """Calculate the degree of coupling of the software architecture"""
     s_list = []
 
+    # Save all dependencies between the modules in a list
     for i in range(len(module_matrix)):
         for j in range(len(module_matrix)):
             if module_matrix[i][j] != 0:
@@ -61,18 +62,19 @@ def change_planning(num_g_changes, num_i_changes, module_matrix):
         ch_priority = 2
         ch_time = 0
 
+        # Calculate general effort and add change to list
         gen_effort += ch_effort
         g_ch_list.append([ch_id, ch_type, ch_effort, ch_priority, ch_time])
 
-    # Create incoming changes
+    # Calculate random occurrence times of incoming changes
     i_time = numpy.random.normal(gen_effort / 2, gen_effort / 3, num_i_changes)
-
     for j in range(len(i_time)):
         if i_time[j] < 0:
             i_time[j] = float(str(i_time[j]).replace('-', ''))
         if i_time[j] > gen_effort:
             i_time[j] = random.uniform(0, gen_effort)
 
+    # Create incoming changes
     for k in range(num_i_changes):
         ch_id = ch_id + 1
         type_tuple = change_type_definition(module_matrix)
@@ -82,6 +84,7 @@ def change_planning(num_g_changes, num_i_changes, module_matrix):
         ch_priority = 1
         ch_time = i_time[k].__round__()
 
+        # Calculate incoming effort and add change to list
         in_effort += ch_effort
         i_ch_list.append([ch_id, ch_type, ch_effort, ch_priority, ch_time])
 
@@ -90,20 +93,25 @@ def change_planning(num_g_changes, num_i_changes, module_matrix):
 
 def change_type_definition(module_matrix):
     """Definition of the change type and dependent variables"""
-    ch_type = random.choice([1, 2, 3])  # randomized change type
+    # Define randomized change type
+    ch_type = random.choice([1, 2, 3])
     basic_effort = 10
 
-    if ch_type == 1:  # Remove module
+    # Calculate dependent variables of the change based on its type
+    # Change type 1: remove module
+    if ch_type == 1:
         change = remove_module(module_matrix, basic_effort, ch_type)
         ch_effort = change[0]
         module_matrix = change[1]
 
-    elif ch_type == 2:  # Change module
+    # Change type 2: change module
+    elif ch_type == 2:
         change = change_module(module_matrix, basic_effort, ch_type)
         ch_effort = change[0]
         module_matrix = change[1]
 
-    else:  # Add module
+    # Change type 3: add module
+    else:
         change = add_module(module_matrix, basic_effort, ch_type)
         ch_effort = change[0]
         module_matrix = change[1]
@@ -113,12 +121,17 @@ def change_type_definition(module_matrix):
 
 def remove_module(module_matrix, basic_effort, change_type):
     """Remove a module and the associated dependencies from the software architecture"""
-    ch_effort = basic_effort * (change_type + 1)
     ch_dep = 0
 
+    # Calculate change effort based on its type
+    ch_effort = basic_effort * (change_type + 1)
+
     if len(module_matrix) != 0:
+        # Define random module to remove
         module = random.randint(0, len(module_matrix) - 1)
 
+        # Calculate the number of dependent modules
+        # and adjust change effort accordingly
         for i in range(len(module_matrix)):
             if module_matrix[module][i] != 0:
                 ch_dep += 1
@@ -137,9 +150,14 @@ def remove_module(module_matrix, basic_effort, change_type):
 
 def change_module(module_matrix, basic_effort, change_type):
     """Change a module from the software architecture"""
+    # Calculate change effort based on its type
     ch_effort = basic_effort * (change_type + 1)
+
+    # Define random module to change
     module = random.randint(0, len(module_matrix) - 1)
 
+    # Calculate the dependencies on the module
+    # and adjust change effort accordingly
     ac_list = numpy.sum(module_matrix, axis=1)
     ch_effort += (ch_effort * ac_list[module])
 
@@ -148,12 +166,14 @@ def change_module(module_matrix, basic_effort, change_type):
 
 def add_module(module_matrix, basic_effort, change_type):
     """Add a module and associated dependencies to the software architecture"""
-    ch_effort = basic_effort * (change_type + 1)
     ch_dep = 0
     module = len(module_matrix)
     x = module_matrix.tolist()
     y = []
     k = 0
+
+    # Calculate change effort based on its type
+    ch_effort = basic_effort * (change_type + 1)
 
     # Calculate the frequency of matrix-fields to be filled in
     a = int(module * (random.uniform(0.1, 1)))
@@ -179,6 +199,8 @@ def add_module(module_matrix, basic_effort, change_type):
     module_matrix = numpy.array([numpy.array(xi) for xi in x])
     module_matrix[module][module] = 0.0
 
+    # Calculate the number of dependent modules
+    # and adjust change effort accordingly
     for i in range(len(module_matrix)):
         if module_matrix[module][i] != 0:
             ch_dep += 1
@@ -189,7 +211,14 @@ def add_module(module_matrix, basic_effort, change_type):
 
 
 class SequentialProject(object):
-    """Sequential Project"""  # add more information
+    """A sequential project is prepared based on the calculated
+    cross-project variables and run afterwards.
+
+    The project is divided into five phases. Incoming changes are
+    processed in an external sequential project and all changes
+    are merged for the testing phase.The test start has to be
+    postponed if not all changes have completed the previous phase"""
+
     def __init__(self, env, gen_effort, i_change_list_sp):
         self.env = env
         self.time_counter = 0
@@ -200,11 +229,11 @@ class SequentialProject(object):
         self.final_effort = 0
         self.test_start = 0
 
-        # Start Run Process when initialising the object
+        # Start Run process when initialising the object
         self.process = env.process(self.run_sp())
 
     def run_sp(self):
-        """Run the simulation of a sequential project"""
+        """Run the sequential project"""
         # Calculate the effort of the individual phases and the test start
         self.ph_list = [self.gen_effort * 0.2, self.gen_effort * 0.2, self.gen_effort * 0.3,
                         self.gen_effort * 0.2, self.gen_effort * 0.1]
@@ -214,41 +243,51 @@ class SequentialProject(object):
         for i in range(len(self.i_ch_list_sp)):
             self.i_ch_list.append(self.i_ch_list_sp[i])
 
-        # Run the "Process Phases" Process
+        # Run the "Process Phases" process
         self.process_phases()
 
     def process_phases(self):
         """Processing the individual project phases one after the other"""
         for i in range(len(self.ph_list)):
+            # Process phase 4
             if i == 3:
+                # Check if the test start is reached
                 while self.test_start > self.time_counter:
                     self.time_counter = self.test_start
                     self.process_i_changes()
+                # Process phase
                 self.final_effort += self.ph_list[i]
                 self.time_counter += self.ph_list[i]
                 self.process_i_changes()
+            # Process phase 5
             elif i == 4:
+                # Check if test start was postponed cause of new changes
+                # and repeat phase 4 if necessary
                 if self.test_start > self.time_counter:
                     while self.test_start > self.time_counter:
                         self.time_counter = self.test_start
                         self.process_i_changes()
                     self.final_effort += (self.ph_list[3] + self.ph_list[i])
                     self.time_counter += (self.ph_list[3] + self.ph_list[i])
+                # Process phase
                 else:
                     self.final_effort += self.ph_list[i]
                     self.time_counter += self.ph_list[i]
+            # Process phase 1, 2, 3
             else:
                 self.final_effort += self.ph_list[i]
                 self.time_counter += self.ph_list[i]
                 self.process_i_changes()
 
     def process_i_changes(self):
-        """Processing of incoming changes"""
+        """Process incoming changes"""
+        # Check if changes occurred
         while any(change for change in self.i_ch_list if change[4] <= self.time_counter):
             for change in (i for i in self.i_ch_list if i[4] <= self.time_counter):
                 ch_effort = change[2]
                 ch_time = change[4]
 
+                # Adjust change effort according to occurrence time
                 if ch_time <= self.ph_list[0]:
                     p = 0.1
                 elif self.ph_list[0] < ch_time <= self.ph_list[1]:
@@ -260,25 +299,32 @@ class SequentialProject(object):
 
                 ch_effort += (ch_effort * p)
 
-                # Change ready for testing
+                # Check if change will be ready for testing
+                # and adjust test start if not
                 if (ch_time + (ch_effort * 0.7)) > self.test_start:
                     self.test_start += (ch_time + ch_effort * 0.7 - self.test_start)
 
+                # Calculate new values of final end phase effort
                 self.final_effort += (ch_effort * 0.7)
                 self.ph_list[3] += (ch_effort * 0.2)
                 self.ph_list[4] += (ch_effort * 0.1)
 
+                # Remove change from list
                 self.i_ch_list.remove(change)
             break
 
     def average_implementation_duration_sp(self):
-        """Calculate ..."""
+        """Calculate the average implementation duration
+        of the incoming changes"""
         duration_list = []
+
+        # Calculate implementation duration of each change
         for i in range(len(self.i_ch_list_sp)):
             ch_time = self.i_ch_list_sp[i][4]
             duration = self.time_counter - ch_time
             duration_list.append(duration)
 
+        # Calculate the average implementation duration
         avg_duration = numpy.sum(duration_list) / (len(duration_list))
 
         return avg_duration
@@ -289,7 +335,12 @@ class SequentialProject(object):
 
 
 class IterativeProject(object):
-    """Iterative Project"""  # add more information
+    """A iterative project is prepared based on the calculated
+    cross-project variables and run afterwards.
+
+    The project follows the Scrum approach. All changes are
+    stored in the Product Backlog and are added to the Sprint
+    Backlog based on their priority."""
 
     def __init__(self, env, sprint_effort_ip, g_change_list_ip, i_change_list_ip):
         self.env = env
@@ -303,11 +354,11 @@ class IterativeProject(object):
         self.sprint_backlog_effort = 0
         self.ch_done = list()
 
-        # Start Run Process when initialising the object
+        # Start Run process when initialising the object
         self.process = self.env.process(self.run_ip())
 
     def run_ip(self):
-        """Run the simulation of an iterative project"""
+        """Run the iterative project"""
         # Save incoming changes in a new list
         for i in range(len(self.i_ch_list_ip)):
             self.i_ch_list.append(self.i_ch_list_ip[i])
@@ -315,6 +366,7 @@ class IterativeProject(object):
         # Sort incoming changes by time
         self.i_ch_list.sort(key=lambda x: x[4])
 
+        # Run the "Fill Sprint Backlog" process
         self.fill_sprint_backlog()
 
     def fill_sprint_backlog(self):
@@ -323,6 +375,7 @@ class IterativeProject(object):
         is full, a Sprint is carried out."""
         while self.product_backlog:
             while self.sprint_backlog_effort < self.sprint_effort and self.product_backlog:
+                # Check if there is a change with priority 1 and add it to the Sprint Backlog
                 if any(change for change in self.product_backlog if change[3] == 1):
                     for i in range(len(self.product_backlog)):
                         if self.product_backlog[i][3] == 1:
@@ -330,22 +383,27 @@ class IterativeProject(object):
                             self.sprint_backlog.append(self.product_backlog[i])
                             self.product_backlog.pop(i)
                             break
+                # Add next change with priority 2 to Sprint Backlog
                 else:
                     self.sprint_backlog_effort += self.product_backlog[0][2]
                     self.sprint_backlog.append(self.product_backlog[0])
                     self.product_backlog.pop(0)
                     break
 
+            # If no changes are left run shorter sprint
             if not self.product_backlog and self.sprint_backlog_effort < self.sprint_effort:
                 self.sprint_effort = self.sprint_backlog_effort
 
+            # Run the "Run Sprint" process
             self.run_sprint()
 
     def run_sprint(self):
-        """Implementation of a sprint. Processing the changes in the Sprint Backlog."""
-        # If not all changes can be processed, an adjustment is made to the incomplete
-        # change and it is moved back into the product backlog with priority 0.
+        """Implementation of a sprint. Processing the changes in the Sprint Backlog.
+        If not all changes can be processed, an adjustment is made to the incomplete
+        # change and it is stored again in the Sprint Backlog."""
         change = []
+
+        # Check if all changes can be implemented and adjust change if not
         if self.sprint_backlog_effort > self.sprint_effort:
             change = self.sprint_backlog[len(self.sprint_backlog) - 1]
             change[2] = self.sprint_backlog_effort - self.sprint_effort
@@ -354,6 +412,7 @@ class IterativeProject(object):
         # Calculate new time
         self.time_counter += self.sprint_effort
 
+        # Save time of completed implementation of each change
         for i in range(len(self.sprint_backlog)):
             if self.sprint_backlog[i][3] == 1:
                 self.ch_done.append([self.sprint_backlog[i][0], self.time_counter])
@@ -367,6 +426,8 @@ class IterativeProject(object):
         # Clear Sprint effort and Sprint Backlog
         self.sprint_backlog_effort = 0
         self.sprint_backlog = []
+
+        # Add unfinished change to Sprint Backlog
         if change:
             self.sprint_backlog.append(change)
             self.sprint_backlog_effort += change[2]
@@ -379,16 +440,20 @@ class IterativeProject(object):
 
     def average_implementation_duration_ip(self):
         """Calculate average implementation duration of incoming changes"""
-        self.ch_done.sort(key=lambda x: x[0])
-        self.i_ch_list_ip.sort(key=lambda x: x[0])
         duration_list = []
 
+        # Sort lists by change id
+        self.ch_done.sort(key=lambda x: x[0])
+        self.i_ch_list_ip.sort(key=lambda x: x[0])
+
+        # Calculate implementation duration of each change
         for i in range(len(self.ch_done)):
             if self.ch_done[i][0] == self.i_ch_list_ip[i][0]:
                 ch_time = self.i_ch_list_ip[i][4]
                 duration = self.ch_done[i][1] - ch_time
                 duration_list.append(duration)
 
+        # Calculate the average implementation duration
         avg_duration = numpy.sum(duration_list) / (len(duration_list))
 
         return avg_duration
@@ -411,6 +476,7 @@ doc_rows = [['Execution Nr.', 'Modules', 'Coupling Degree', 'General Changes', '
 
 # Execute the simulation several times
 for i in range(100000):
+    # Calculate randomized cross-project values
     NUMBER_OF_MODULES = random.randint(50, 100)
     NUMBER_OF_GENERAL_CHANGES = random.randint(15, 30)
     NUMBER_OF_INCOMING_CHANGES = random.randint(15, 30)
