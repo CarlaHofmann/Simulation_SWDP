@@ -2,6 +2,13 @@
 
 Simulation_SWDP is a simulation of a sequential and an iterative software development project.
 
+## Table of contents
+* [About the Project](#about-the-project)
+* [Technologies](#technologies)
+* [Installation and Usage](#installation-and-usage)
+
+## About the Project
+
 ## Technologies
 The project is created with: 
 * Python Version 3.8
