@@ -22,7 +22,7 @@ The project is created with:
 * NumPy Version 1.19.5
 
 ## Installation and Usage
-Clone the repository and use the package manager [pip](https://pip.pypa.io/en/stable/) to install the packages SimPy and NumPy.
+Clone the repository and use the package manager [pip](https://pip.pypa.io/en/stable/) to install the packages SimPy and NumPy:
 ```
 pip install simpy
 pip install numpy
